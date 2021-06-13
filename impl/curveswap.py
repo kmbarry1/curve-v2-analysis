@@ -1,7 +1,8 @@
 from scipy.optimize import fsolve
 from scipy.stats import gmean
 
-class CurveSwap:
+# Pure invariant-based exchange--no LP fees, no admin fees, no repegging.
+class CurveSwap_1:
 
     def __init__(self, tokens, initial_prices, A, gamma):
         self.tokens = tokens
@@ -29,7 +30,7 @@ class CurveSwap:
             self.balances[i] += amounts[i]
 
         # For now, not tweaking prices, so assign scaled_balances here
-        xp = self.scaled_balances = self.calc_scaled_bals()
+        xp = self.scaled_balances = self.calc_scaled_bals(self.balances)
 
         old_D = self.D
         new_D = self.calc_D(self.A, self.gamma, xp)
@@ -53,22 +54,28 @@ class CurveSwap:
         assert(j < N)
         assert(dx > 0)
 
+        dy = self.calc_exchange(i, j, dx)
+        assert(dy > 0)
         self.balances[i] += dx
-        xp = self.calc_scaled_bals()  # all but jth entry correct
+        self.balances[j] -= dy
+        self.scaled_balances = self.calc_scaled_bals(self.balances)
+        return dy
+
+    # side-effect free function for analysis
+    def calc_exchange(self, i, j, dx):
+        N = self.N
+        b = self.balances.copy()
+        b[i] += dx
+        xp = self.calc_scaled_bals(b)
         yp = self.calc_y(self.A, self.gamma, xp, self.D, j)
-        assert(yp < xp[j])
-        y_init = self.balances[j]
-        self.balances[j] = yp / self.price_scale[j]
-        self.scaled_balances = self.calc_scaled_bals()
+        y = yp / self.price_scale[j]
+        return b[j] - y
 
-        # return # of tokens purchased
-        return y_init - self.balances[j]
-
-    def calc_scaled_bals(self):
+    def calc_scaled_bals(self, balances):
         N = self.N
         scaled = [0] * N
         for i in range(N):
-            scaled[i] = self.balances[i] * self.price_scale[i]
+            scaled[i] = balances[i] * self.price_scale[i]
         return scaled
 
     def calc_xcp(self, D):
