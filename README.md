@@ -5,5 +5,5 @@
 2. Clone this repo into the virtual environment directory
 3. Install dependencies:
 ```
-pip3 install scipy
+pip3 install scipy matplotlib numpy
 ```
