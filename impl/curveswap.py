@@ -34,7 +34,7 @@ class CurveSwap:
         old_D = self.D
         new_D = self.calc_D(self.A, self.gamma, xp)
 
-        # Not assessing admin fee for now either
+        # Not assessing admin fee for now
         d_token = 0
         if old_D > 0:
             d_token = supply * (new_D / old_D - 1)
@@ -43,6 +43,26 @@ class CurveSwap:
 
         self.D = new_D
 
+        # return # of LP shares minted
+        return d_token
+
+    def exchange(self, i, j, dx):
+        N = self.N
+        assert(i != j)
+        assert(i < N)
+        assert(j < N)
+        assert(dx > 0)
+
+        self.balances[i] += dx
+        xp = self.calc_scaled_bals()  # all but jth entry correct
+        yp = self.calc_y(self.A, self.gamma, xp, self.D, j)
+        assert(yp < xp[j])
+        y_init = self.balances[j]
+        self.balances[j] = yp / self.price_scale[j]
+        self.scaled_balances = self.calc_scaled_bals()
+
+        # return # of tokens purchased
+        return y_init - self.balances[j]
 
     def calc_scaled_bals(self):
         N = self.N
@@ -57,8 +77,6 @@ class CurveSwap:
         p = self.price_scale
         for i in range(N):
             x[i] = D / (N * p[i])
-
-        # Return the geometric mean of x
         return gmean(x)
 
     def calc_D(self, A, gamma, xp):
@@ -75,3 +93,24 @@ class CurveSwap:
             return K*(DN * summ / D - DN) + prod - DN / NN
         D0 = N * gmean(xp)
         return fsolve(f, [D0])[0]
+
+    def calc_y(self, A, gamma, xp, D, j):
+        N = len(xp)
+        assert(j < N)
+        NN = N**N
+        DN = D**N
+        summ_ = 0.
+        prod_ = 1.
+        for i in range(N):
+            if i == j:
+                continue
+            summ_ += xp[i]
+            prod_ *= xp[i]
+        def f(y):
+            summ = y + summ_
+            prod = y * prod_
+            K0 = prod * NN / DN
+            K = A * K0 * gamma**2 / (gamma + 1 - K0)**2
+            return K*(DN * summ / D - DN) + prod - DN / NN
+        y0 = DN / (prod_ * NN)
+        return fsolve(f, [y0])[0]
