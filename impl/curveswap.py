@@ -38,11 +38,12 @@ class CurveSwap_1:
         # Not assessing admin fee for now
         d_token = 0
         if old_D > 0:
-            d_token = supply * (new_D / old_D - 1)
+            d_token = self.supply * (new_D / old_D - 1)
         else:
             d_token = self.calc_xcp(new_D)
 
         self.D = new_D
+        self.supply += d_token
 
         # return # of LP shares minted
         return d_token
@@ -118,6 +119,27 @@ class CurveSwap_1:
             prod = y * prod_
             K0 = prod * NN / DN
             K = A * K0 * gamma**2 / (gamma + 1 - K0)**2
+            return K*(DN * summ / D - DN) + prod - DN / NN
+        y0 = DN / (prod_ * NN)
+        return fsolve(f, [y0])[0]
+
+    def calc_y_stableswap(self, A, xp, D, j):
+        N = len(xp)
+        assert(j < N)
+        NN = N**N
+        DN = D**N
+        summ_ = 0.
+        prod_ = 1.
+        for i in range(N):
+            if i == j:
+                continue
+            summ_ += xp[i]
+            prod_ *= xp[i]
+        def f(y):
+            summ = y + summ_
+            prod = y * prod_
+            K0 = prod * NN / DN
+            K = A * K0
             return K*(DN * summ / D - DN) + prod - DN / NN
         y0 = DN / (prod_ * NN)
         return fsolve(f, [y0])[0]
