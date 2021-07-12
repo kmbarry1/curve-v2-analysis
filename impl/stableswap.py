@@ -92,6 +92,6 @@ class StableSwap:
         y0 = DN / (prod_ * NN)
         return fsolve(f, [y0])[0]
     
-    def get_virtual_price(self, shares):
+    def get_virtual_price(self):
         D = self.calc_D(self.A, self.balances)
-        return D / supply
+        return D / self.supply
